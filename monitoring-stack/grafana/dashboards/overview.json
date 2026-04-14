@@ -1,0 +1,218 @@
+{
+  "title": "Infrastructure Overview",
+  "uid": "infra-overview",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "30s",
+  "time": { "from": "now-1h", "to": "now" },
+  "tags": ["monitoring-stack", "infrastructure"],
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "CPU Usage %",
+      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 70 },
+              { "color": "red", "value": 85 }
+            ]
+          }
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "orientation": "auto", "colorMode": "background" },
+      "targets": [
+        {
+          "expr": "100 - (avg(rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
+          "legendFormat": "CPU",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Memory Usage %",
+      "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 75 },
+              { "color": "red", "value": 90 }
+            ]
+          }
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "targets": [
+        {
+          "expr": "(1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100",
+          "legendFormat": "Memory",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Disk Usage % (/)",
+      "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 75 },
+              { "color": "red", "value": 90 }
+            ]
+          }
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "targets": [
+        {
+          "expr": "topk(1,
+  (node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs|fuse.lxcfs|rootfs"} 
+  - node_filesystem_free_bytes{fstype!~"tmpfs|overlay|squashfs|fuse.lxcfs|rootfs"})
+  / node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs|fuse.lxcfs|rootfs"} * 100
+)",
+          "legendFormat": "Disk /",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Running Containers",
+      "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] }
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
+      "targets": [
+        {
+          "expr": "count(container_last_seen{name!=\"\"})",
+          "legendFormat": "Containers",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "CPU Usage over time",
+      "gridPos": { "x": 0, "y": 4, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "unit": "percent", "min": 0, "max": 100 }
+      },
+      "targets": [
+        {
+          "expr": "100 - (avg by (cpu) (rate(node_cpu_seconds_total{mode=\"idle\"}[5m])) * 100)",
+          "legendFormat": "CPU {{ cpu }}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Memory breakdown",
+      "gridPos": { "x": 12, "y": 4, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "unit": "bytes", "min": 0 }
+      },
+      "targets": [
+        {
+          "expr": "node_memory_MemTotal_bytes",
+          "legendFormat": "Total",
+          "refId": "A"
+        },
+        {
+          "expr": "node_memory_MemAvailable_bytes",
+          "legendFormat": "Available",
+          "refId": "B"
+        },
+        {
+          "expr": "node_memory_MemTotal_bytes - node_memory_MemAvailable_bytes",
+          "legendFormat": "Used",
+          "refId": "C"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Network I/O",
+      "gridPos": { "x": 0, "y": 12, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "unit": "Bps" }
+      },
+      "targets": [
+        {
+          "expr": "rate(node_network_receive_bytes_total{device!~\"lo|veth.*|br.*|docker.*\"}[5m])",
+          "legendFormat": "RX {{ device }}",
+          "refId": "A"
+        },
+        {
+          "expr": "rate(node_network_transmit_bytes_total{device!~\"lo|veth.*|br.*|docker.*\"}[5m])",
+          "legendFormat": "TX {{ device }}",
+          "refId": "B"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "Container CPU usage",
+      "gridPos": { "x": 12, "y": 12, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": {
+        "defaults": { "unit": "percent", "min": 0 }
+      },
+      "targets": [
+        {
+          "expr": "rate(container_cpu_usage_seconds_total{name!=\"\"}[5m]) * 100",
+          "legendFormat": "{{ name }}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "type": "logs",
+      "title": "Container logs",
+      "gridPos": { "x": 0, "y": 20, "w": 24, "h": 8 },
+      "datasource": { "type": "loki", "uid": "loki" },
+      "options": { "showTime": true, "showLabels": true, "wrapLogMessage": false },
+      "targets": [
+        {
+          "expr": "{job=\"docker\"} |= ``",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ]
+    }
+  ]
+}

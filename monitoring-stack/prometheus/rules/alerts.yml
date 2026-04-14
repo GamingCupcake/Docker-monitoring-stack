@@ -1,0 +1,103 @@
+groups:
+
+  # ─── Host resource alerts ──────────────────────────────────────────────────
+  - name: host_resources
+    rules:
+
+      # CPU has been above 85% for 5 minutes — sustained load, not a spike
+      - alert: HostHighCpuLoad
+        expr: |
+          100 - (avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High CPU load on {{ $labels.instance }}"
+          description: "CPU usage is {{ $value | printf \"%.1f\" }}% — above 85% threshold for 5 minutes."
+
+      # RAM usage above 90% — approaching OOM territory
+      - alert: HostHighMemoryUsage
+        expr: |
+          (1 - (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) * 100 > 90
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High memory usage on {{ $labels.instance }}"
+          description: "Memory usage is {{ $value | printf \"%.1f\" }}% — above 90% threshold."
+
+      # Filesystem above 85% used — time to investigate before it fills
+      - alert: HostDiskSpaceWarning
+        expr: |
+          (node_filesystem_size_bytes{fstype!~"tmpfs|fuse.lxcfs|squashfs"} - node_filesystem_free_bytes) /
+          node_filesystem_size_bytes{fstype!~"tmpfs|fuse.lxcfs|squashfs"} * 100 > 85
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Disk space warning on {{ $labels.instance }} ({{ $labels.mountpoint }})"
+          description: "Filesystem {{ $labels.mountpoint }} is {{ $value | printf \"%.1f\" }}% full."
+
+      # Filesystem above 95% — critical, action needed now
+      - alert: HostDiskSpaceCritical
+        expr: |
+          (node_filesystem_size_bytes{fstype!~"tmpfs|fuse.lxcfs|squashfs"} - node_filesystem_free_bytes) /
+          node_filesystem_size_bytes{fstype!~"tmpfs|fuse.lxcfs|squashfs"} * 100 > 95
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Disk space critical on {{ $labels.instance }} ({{ $labels.mountpoint }})"
+          description: "Filesystem {{ $labels.mountpoint }} is {{ $value | printf \"%.1f\" }}% full."
+
+      # System load average above number of CPU cores — host is overloaded
+      - alert: HostHighSystemLoad
+        expr: |
+          node_load1 > count(node_cpu_seconds_total{mode="idle"}) without (cpu, mode)
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High system load on {{ $labels.instance }}"
+          description: "1-minute load average {{ $value | printf \"%.2f\" }} exceeds CPU count."
+
+  # ─── Container alerts ──────────────────────────────────────────────────────
+  - name: containers
+    rules:
+
+      # Container has restarted 3+ times in 15 minutes — crash loop
+      - alert: ContainerCrashLooping
+        expr: |
+          increase(container_start_time_seconds{name!=""}[15m]) > 3
+        for: 0m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Container crash-looping: {{ $labels.name }}"
+          description: "Container {{ $labels.name }} has restarted more than 3 times in the last 15 minutes."
+
+      # Container using more than 90% of its memory limit
+      - alert: ContainerHighMemoryUsage
+        expr: |
+          (container_memory_working_set_bytes{name!=""}
+          / container_spec_memory_limit_bytes{name!=""}) * 100 > 90
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Container high memory: {{ $labels.name }}"
+          description: "Container {{ $labels.name }} is using {{ $value | printf \"%.1f\" }}% of its memory limit."
+
+  # ─── Monitoring stack self-health ─────────────────────────────────────────
+  - name: monitoring_health
+    rules:
+
+      # A scrape target has been down for 1 minute
+      - alert: PrometheusTargetDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Scrape target down: {{ $labels.job }} / {{ $labels.instance }}"
+          description: "Prometheus cannot reach {{ $labels.instance }}. Check the exporter is running."

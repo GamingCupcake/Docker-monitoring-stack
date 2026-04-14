@@ -1,0 +1,48 @@
+global:
+  scrape_interval: 15s       # how often to scrape all targets
+  evaluation_interval: 15s   # how often to evaluate alert rules
+  scrape_timeout: 10s
+
+# Send firing alerts to Alertmanager
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
+# Load alert rule files from the rules/ directory
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+# ─── Scrape jobs ──────────────────────────────────────────────────────────────
+
+scrape_configs:
+
+  # Prometheus scrapes its own metrics — useful for monitoring the monitor
+  - job_name: "prometheus"
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  # Host-level metrics: CPU, memory, disk, network, load average
+  - job_name: "node-exporter"
+    static_configs:
+      - targets: ["node-exporter:9100"]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: "host"
+
+  # Container-level metrics: per-container CPU, memory, network
+  - job_name: "cadvisor"
+    static_configs:
+      - targets: ["cadvisor:8080"]
+    metric_relabel_configs:
+      # Drop high-cardinality cAdvisor metrics we don't need
+      - source_labels: [__name__]
+        regex: "container_(tasks_state|memory_failures_total)"
+        action: drop
+
+  # Alloy self-metrics: pipeline health, scrape success/failure counts
+  - job_name: "alloy"
+    static_configs:
+      - targets: ["alloy:12345"]

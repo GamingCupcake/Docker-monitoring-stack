@@ -1,0 +1,71 @@
+// config.alloy — Grafana Alloy pipeline configuration
+// Alloy uses River syntax (HCL-like). Each block is a component.
+// Data flows left-to-right: discovery → scrape → remote_write
+
+// ─── Prometheus metrics pipeline ─────────────────────────────────────────────
+
+// Scrape node-exporter (host metrics)
+prometheus.scrape "node_exporter" {
+  targets = [{ "__address__" = "node-exporter:9100" }]
+  forward_to = [prometheus.remote_write.local.receiver]
+  scrape_interval = "15s"
+  job_name = "node-exporter"
+}
+
+// Scrape cAdvisor (container metrics)
+prometheus.scrape "cadvisor" {
+  targets = [{ "__address__" = "cadvisor:8080" }]
+  forward_to = [prometheus.remote_write.local.receiver]
+  scrape_interval = "15s"
+  job_name = "cadvisor"
+}
+
+// Send all scraped metrics to the local Prometheus instance
+prometheus.remote_write "local" {
+  endpoint {
+    url = "http://prometheus:9090/api/v1/write"
+  }
+}
+
+// ─── Log collection pipeline ──────────────────────────────────────────────────
+
+// Discover all running Docker containers and read their logs
+discovery.docker "containers" {
+  host = "unix:///var/run/docker.sock"
+}
+
+// Relabel discovered containers to useful log labels
+discovery.relabel "docker_logs" {
+  targets = discovery.docker.containers.targets
+
+  // Use the container name as the job label
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+
+  // Carry the image name as a label for filtering
+  rule {
+    source_labels = ["__meta_docker_container_image"]
+    target_label  = "image"
+  }
+}
+
+// Tail the log files for discovered containers
+loki.source.docker "container_logs" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.docker_logs.output
+  forward_to = [loki.write.local.receiver]
+
+  labels = {
+    job = "docker",
+  }
+}
+
+// Ship logs to local Loki
+loki.write "local" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}
