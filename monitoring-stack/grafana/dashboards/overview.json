@@ -85,12 +85,8 @@
       "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background" },
       "targets": [
         {
-          "expr": "topk(1,
-  (node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs|fuse.lxcfs|rootfs"} 
-  - node_filesystem_free_bytes{fstype!~"tmpfs|overlay|squashfs|fuse.lxcfs|rootfs"})
-  / node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs|fuse.lxcfs|rootfs"} * 100
-)",
-          "legendFormat": "Disk /",
+		  "expr": "topk(1, (node_filesystem_size_bytes{fstype!~\"tmpfs|overlay|squashfs|fuse.lxcfs|rootfs\"} - node_filesystem_free_bytes{fstype!~\"tmpfs|overlay|squashfs|fuse.lxcfs|rootfs\"}) / node_filesystem_size_bytes{fstype!~\"tmpfs|overlay|squashfs|fuse.lxcfs|rootfs\"} * 100)",
+		  "legendFormat": "Disk /",
           "refId": "A"
         }
       ]
